@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'sos_hold_screen.dart';
+import 'settings_screen.dart';
 
 class SOSHomeScreen extends StatefulWidget {
   @override
@@ -7,11 +9,22 @@ class SOSHomeScreen extends StatefulWidget {
 }
 
 class _SOSHomeScreenState extends State<SOSHomeScreen> {
-  bool _isHolding = false;
+  void _handleLongPressStart(LongPressStartDetails details) {
+    HapticFeedback.mediumImpact();
+    debugPrint("Emergency hold started");
+  }
+
+  void _handleLongPressEnd(LongPressEndDetails details) {
+    debugPrint("Emergency hold cancelled");
+  }
 
   void _handleEmergencyTrigger() {
     HapticFeedback.vibrate();
-    print("Emergency Dispatch Triggered!");
+    debugPrint("Emergency Dispatch Triggered!");
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => SOSHoldScreen()),
+    );
   }
 
   @override
@@ -24,11 +37,22 @@ class _SOSHomeScreenState extends State<SOSHomeScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.accessibility, color: Colors.black),
-            onPressed: () {},
+            onPressed: () {
+              // TODO: Navigate to accessibility settings
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Accessibility settings coming soon')),
+              );
+            },
           ),
           IconButton(
             icon: Icon(Icons.more_vert, color: Colors.black),
-            onPressed: () {},
+            onPressed: () {
+              // TODO: Navigate to settings/help screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SettingsScreen()),
+              );
+            },
           ),
         ],
       ),
@@ -45,11 +69,8 @@ class _SOSHomeScreenState extends State<SOSHomeScreen> {
           Expanded(
             child: Center(
               child: GestureDetector(
-                onLongPressStart: (_) {
-                  setState(() => _isHolding = true);
-                  HapticFeedback.mediumImpact();
-                },
-                onLongPressEnd: (_) => setState(() => _isHolding = false),
+                onLongPressStart: _handleLongPressStart,
+                onLongPressEnd: _handleLongPressEnd,
                 onLongPress: _handleEmergencyTrigger,
                 child: Container(
                   width: 180,
@@ -93,7 +114,7 @@ class _SOSHomeScreenState extends State<SOSHomeScreen> {
                     style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                 ),
-                Text("SafeCall • Version 2.4.1", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                Text("Emergency Dispatch • Version 2.4.1", style: TextStyle(color: Colors.grey, fontSize: 12)),
               ],
             ),
           ),

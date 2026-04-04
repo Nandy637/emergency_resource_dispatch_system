@@ -1,13 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:ui' show PlatformDispatcher;
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+const String _baseUrl = 'http://192.168.31.25:8000/api/v1';
+
+/// Emergency numbers by region/country
+/// US: 911, EU/UK: 112, AU: 000, JP: 110
+const Map<String, String> kEmergencyNumbers = {
+  'US': '911',
+  'CA': '911',
+  'GB': '999',
+  'IE': '999',
+  'DE': '112',
+  'FR': '112',
+  'IT': '112',
+  'ES': '112',
+  'NL': '112',
+  'BE': '112',
+  'AT': '112',
+  'CH': '112',
+  'AU': '000',
+  'JP': '110',
+  'IN': '112',
+};
+
+/// Get emergency number based on device locale
+String _getEmergencyNumber() {
+  // Try to get device locale
+  final locale = PlatformDispatcher.instance.locale;
+  final countryCode = locale.countryCode ?? 'US';
+  
+  // Check for known emergency number mappings
+  return kEmergencyNumbers[countryCode] ?? '112'; // Default to 112 (international)
+}
+
+/// Default emergency number constant for reference
+const String kEmergencyNumber = '911';
 
 /// Incident Tracking Screen
 /// Displays live map and responder details after SOS is triggered
 class TrackingScreen extends StatefulWidget {
   final String incidentId;
+  final Position? userLocation;
   
   const TrackingScreen({
     Key? key,
     required this.incidentId,
+    this.userLocation,
   }) : super(key: key);
 
   @override
@@ -15,32 +59,53 @@ class TrackingScreen extends StatefulWidget {
 }
 
 class _TrackingScreenState extends State<TrackingScreen> {
-  // Mock responder data - in production, this would come from the backend
-  final List<Map<String, dynamic>> _responders = [
-    {
-      'name': 'Ambulance Unit A12',
-      'type': 'Medical',
-      'eta': '8 min',
-      'distance': '3.2 km',
-      'status': 'En Route',
-    },
-    {
-      'name': 'Fire Engine T5',
-      'type': 'Fire',
-      'eta': '12 min',
-      'distance': '5.1 km',
-      'status': 'En Route',
-    },
-    {
-      'name': 'Police Patrol P8',
-      'type': 'Police',
-      'eta': '6 min',
-      'distance': '2.4 km',
-      'status': 'Arrived',
-    },
-  ];
+  GoogleMapController? _mapController;
+  
+  List<Map<String, dynamic>> _responders = [];
+  bool _isLoading = true;
 
   @override
+  void initState() {
+    super.initState();
+    _fetchTrackingData();
+  }
+
+  Future<void> _fetchTrackingData() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/incident/${widget.incidentId}/tracking'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final respondersList = data['responders'] as List;
+        setState(() {
+          _responders = respondersList.map((r) => {
+            'name': r['name'],
+            'type': r['type'],
+            'eta': r['eta'],
+            'distance': r['distance'],
+            'status': r['status'],
+          }).toList();
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    super.dispose();
+  }
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -58,8 +123,16 @@ class _TrackingScreenState extends State<TrackingScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.phone, color: Colors.white),
-            onPressed: () {
-              // Call emergency services
+            onPressed: () async {
+              final String emergencyNumber = _getEmergencyNumber();
+              final Uri emergencyUrl = Uri(scheme: 'tel', path: emergencyNumber);
+              if (await canLaunchUrl(emergencyUrl)) {
+                await launchUrl(emergencyUrl);
+              } else if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Could not launch emergency dialer')),
+                );
+              }
             },
           ),
         ],
@@ -104,6 +177,14 @@ class _TrackingScreenState extends State<TrackingScreen> {
                           fontSize: 14,
                         ),
                       ),
+                      if (widget.userLocation != null)
+                        Text(
+                          'Location: ${widget.userLocation!.latitude.toStringAsFixed(4)}, ${widget.userLocation!.longitude.toStringAsFixed(4)}',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 12,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -126,7 +207,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
             ),
           ),
 
-          // Map Placeholder
+          // Map View - shows Google Maps if location available, else placeholder
           Expanded(
             flex: 2,
             child: Container(
@@ -136,33 +217,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.grey[300]!),
               ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.map,
-                      size: 64,
-                      color: Colors.grey[400],
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'Live Map View',
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 16,
-                      ),
-                    ),
-                    Text(
-                      'Google Maps / MapKit Integration',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              clipBehavior: Clip.antiAlias,
+              child: widget.userLocation != null
+                  ? _buildGoogleMap()
+                  : _buildMapPlaceholder(),
             ),
           ),
 
@@ -341,5 +399,66 @@ class _TrackingScreenState extends State<TrackingScreen> {
       default:
         return Icons.directions_car;
     }
+  }
+
+  /// Build Google Maps widget with user location
+  Widget _buildGoogleMap() {
+    final LatLng userLatLng = LatLng(
+      widget.userLocation!.latitude,
+      widget.userLocation!.longitude,
+    );
+
+    return GoogleMap(
+      initialCameraPosition: CameraPosition(
+        target: userLatLng,
+        zoom: 15,
+      ),
+      onMapCreated: (GoogleMapController controller) {
+        _mapController = controller;
+      },
+      myLocationEnabled: true,
+      myLocationButtonEnabled: true,
+      mapToolbarEnabled: false,
+      zoomControlsEnabled: false,
+      markers: {
+        Marker(
+          markerId: const MarkerId('user_location'),
+          position: userLatLng,
+          infoWindow: const InfoWindow(title: 'Your Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        ),
+      },
+    );
+  }
+
+  /// Build placeholder when location is unavailable
+  Widget _buildMapPlaceholder() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.map,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Live Map View',
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 16,
+            ),
+          ),
+          Text(
+            'Google Maps / MapKit Integration',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
