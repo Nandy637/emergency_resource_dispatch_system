@@ -1,15 +1,11 @@
-// This is a basic Flutter widget test for the Emergency Dispatch System.
-
+// Widget test updated to match SafeCallApp entry point.
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:emergency_resource_dispatch_system/main.dart';
 
 void main() {
-  testWidgets('SOS button appears on home screen', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const EmergencyDispatchApp());
-
-    // Verify that the SOS button is displayed.
-    expect(find.text('SOS'), findsOneWidget);
+  testWidgets('SafeCallApp smoke test', (WidgetTester tester) async {
+    // Pumps the app and verifies the role selector renders.
+    await tester.pumpWidget(const SafeCallApp());
+    expect(find.text('SafeCall SOS'), findsOneWidget);
   });
 }

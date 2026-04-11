@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "261128811095",
+    "project_id": "safecall-sos-6ec83",
+    "storage_bucket": "safecall-sos-6ec83.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:261128811095:android:a8f8d656286a4ee4b92912",
+        "android_client_info": {
+          "package_name": "com.example.emergency_resource_dispatch_system"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxbLu79DrqGY7tm9EMkMbvx2RzRwR_hJY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
